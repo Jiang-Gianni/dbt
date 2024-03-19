@@ -6,12 +6,12 @@ import (
 )
 
 func (s *Scanner) Extract(name string) (string, []any, error) {
-	query := s.Queries[name]
+	query := s.Queries[name].Query
 	if query[0:2] != "--" {
-		return s.Queries[name], nil, nil
+		return query, nil, nil
 	}
 	f, args, err := ParseFunctionCall(query)
-	return s.Queries[f], args, err
+	return s.Queries[f].Query, args, err
 }
 
 func ParseFunctionCall(input string) (string, []any, error) {
@@ -48,7 +48,6 @@ func parseArguments(argStr string) []any {
 			}
 		case '\'':
 			inString = !inString
-			// arg += string(char)
 		case '{', '}':
 			if !inString {
 				inArray = !inArray

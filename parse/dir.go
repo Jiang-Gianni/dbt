@@ -11,8 +11,9 @@ var sqlRegexp = regexp.MustCompile(".sql$")
 // New returns a scanner after analyzing the input directory
 func New(dir string) (*Scanner, error) {
 	s := &Scanner{
-		Queries: make(map[string]string),
+		Queries: make(map[string]*QueryTest),
 		MapList: make(map[string][]string),
+		LineMap: make(map[string]int),
 	}
 	return s, s.ParseDir(dir)
 }
@@ -37,8 +38,9 @@ func (s *Scanner) ParseDir(dir string) error {
 			if err != nil {
 				return err
 			}
+			defer f.Close()
 			b := bufio.NewScanner(f)
-			s.Run(b)
+			s.Run(entryName, b)
 			continue
 		}
 

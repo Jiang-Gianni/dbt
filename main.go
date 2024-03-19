@@ -23,9 +23,10 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
+	"os"
 
 	"github.com/Jiang-Gianni/dbt/db"
+	"github.com/Jiang-Gianni/dbt/out"
 	"github.com/Jiang-Gianni/dbt/parse"
 	_ "github.com/lib/pq"
 )
@@ -42,7 +43,7 @@ func main() {
 		panic(err)
 	}
 	defer sqlDB.Close()
-	exe := db.DbExecutor{
+	exe := db.QueryExecutor{
 		DB:   sqlDB,
 		Scan: s,
 	}
@@ -50,21 +51,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	for _, r := range rr {
-		fmt.Printf("\n\n")
-		if r != nil {
-			fmt.Print(*r)
-		}
+	_ = rr
+	f, err := os.Create("z.md")
+	if err != nil {
+		panic(err)
 	}
-
-	// cmd.Execute()
-
-	// input := `MyFunc('Hello', {1,2,3}, 123, '{1,2,3}')`
-	// name, args, err := parse.ParseFunctionCall(input)
-	// if err != nil {
-	// 	return
-	// }
-	// fmt.Println("NAME", name)
-	// fmt.Println("ARGS", args)
-	// fmt.Println("LEN ARGS", len(args))
+	defer f.Close()
+	out.WriteTestOutput(f, rr)
 }

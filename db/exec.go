@@ -2,24 +2,43 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
+	"strconv"
 
 	"github.com/Jiang-Gianni/dbt/parse"
 )
 
-type DbExecutor struct {
+type QueryExecutor struct {
 	DB   *sql.DB
 	Scan *parse.Scanner
 }
 
 type QueryResults struct {
-	Name    string
-	Query   string
+	// in .sql files: -- test: YOUR_TEST_NAME
+	Name string
+
+	// sql query
+	Query string
+
+	// column of the query output
 	Columns []string
-	Rows    [][]string
+
+	// rows of the query output
+	Rows [][]string
+
+	// file name containing the query
+	FileName string
+
+	// line number of the file
+	Line string
+
+	// error message (if present)
+	Error string
+
+	// arguments used in the query
+	Args []any
 }
 
-func (exe *DbExecutor) Run(typeToRun string) ([]*QueryResults, error) {
+func (exe *QueryExecutor) Run(typeToRun string) ([]*QueryResults, error) {
 	var err error
 	var query string
 	var args []any
@@ -30,11 +49,7 @@ func (exe *DbExecutor) Run(typeToRun string) ([]*QueryResults, error) {
 		if err != nil {
 			return nil, err
 		}
-		if len(args) > 0 {
-			out[i], err = exe.ExecQuery(name, query, args...)
-		} else {
-			out[i], err = exe.ExecQuery(name, query)
-		}
+		out[i], err = exe.ExecQuery(name, query, args...)
 		if err != nil {
 			return out, err
 		}
@@ -42,28 +57,31 @@ func (exe *DbExecutor) Run(typeToRun string) ([]*QueryResults, error) {
 	return out, err
 }
 
-func (exe *DbExecutor) ExecQuery(name string, query string, args ...any) (*QueryResults, error) {
-	qr := &QueryResults{
-		Query: query,
-		Name:  name,
+func (exe *QueryExecutor) ExecQuery(name string, query string, args ...any) (qr *QueryResults, err error) {
+	qr = &QueryResults{
+		Query:    query,
+		Name:     name,
+		Line:     strconv.Itoa(exe.Scan.Queries[name].Line),
+		FileName: exe.Scan.Queries[name].FileName,
+		Args:     args,
 	}
-	var err error
+
+	// If there is an error we don't bubble it up but rather insert it in the result struct
+	defer func() {
+		if err != nil {
+			qr.Error = err.Error()
+			err = nil
+		}
+	}()
+
 	var rows *sql.Rows
-	fmt.Printf("\n---------\n")
-	fmt.Println(name, query)
-	fmt.Println(args...)
-	fmt.Printf("\n---------\n")
-	if len(args) > 0 {
-		rows, err = exe.DB.Query(query, args...)
-	} else {
-		rows, err = exe.DB.Query(query)
-	}
+	rows, err = exe.DB.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return qr, err
 	}
 	cols, err := rows.Columns()
 	if err != nil {
-		return nil, err
+		return qr, err
 	}
 	qr.Columns = cols
 
@@ -77,7 +95,7 @@ func (exe *DbExecutor) ExecQuery(name string, query string, args ...any) (*Query
 	for rows.Next() {
 		result := make([]string, len(cols))
 		if err := rows.Scan(dest...); err != nil {
-			return nil, err
+			return qr, err
 		}
 		for i, raw := range rawResult {
 			if raw == nil {
@@ -90,10 +108,10 @@ func (exe *DbExecutor) ExecQuery(name string, query string, args ...any) (*Query
 	}
 
 	if err := rows.Close(); err != nil {
-		return nil, err
+		return qr, err
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return qr, err
 	}
 
 	return qr, nil

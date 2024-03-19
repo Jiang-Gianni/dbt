@@ -48,6 +48,18 @@ var fws = []FW{
 		signal:      make(chan struct{}),
 		run:         GoWatch(),
 	},
+	{
+		directories: []string{"./out"},
+		files:       []string{},
+		regexMatch:  ".md$",
+		ticker:      time.NewTicker(time.Second),
+		run: func(filename string, fw *FW) {
+			RunCmd(
+				exec.Command("qtc", "-dir", "out", "-ext", "md"),
+				true,
+			)
+		},
+	},
 }
 
 func main() {
